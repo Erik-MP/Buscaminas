@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <link rel="stylesheet" href="Buscaminas.css">
+    <link rel="icon" href="images/carainicio.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscaminas</title>
+</head>
+
+<body>
+    <!--
+        13.BUSCAMINAS
+    -->
+    <div class="cuerpo">
+        <div id="funciones">
+            <div id="tiempo">
+                <p id="cont"></p>
+                <p id="contfondo">888</p>
+            </div>
+            <div class="restart">
+                <img id="cara" src="images/carainicio.png" alt="reiniciar juego" onclick="reiniciarProg()" width="70px"
+                    height="70px">
+            </div>
+            <div class="contbanderas">
+                <p id="banderas">10</p>
+                <p id="banderasfondo">888</p>
+            </div>
+        </div>
+        <div id="buscaminas">
+        </div>
+        <button id="comenzar" onclick="crearBuscaminas()">Empezar</button>
+    </div>
+    <script>
+
+        let acabada = false;
+        let activado = false;
+        let nbanderas = 10;
+        let arrayCeldas = [];
+
+
+        function crearBuscaminas() {
+            document.getElementById("comenzar").style.display = "none";
+            document.getElementById("buscaminas").style.display = "grid";
+            document.getElementById("funciones").style.display = "flex";
+            //Creacion de todas las celdas que va a haber en total
+            for (let fila = 0; fila < 8; fila++) {
+                //crea otro array para las columnas
+                arrayCeldas[fila] = [];
+                for (let columna = 0; columna < 8; columna++) {
+                    //crea los divs que van a ir dentro del buscaminas, de momento son celdas normales
+                    let celda = document.createElement("div");
+                    celda.className = "celda";
+                    celda.id = fila + "-" + columna;
+                    celda.onclick = function () { pinchar(celda) };
+                    celda.oncontextmenu = function () { ponerQuitarBandera(celda) };
+                    arrayCeldas[fila][columna] = celda;
+                    document.getElementById('buscaminas').appendChild(celda);
+                }
+            }
+
+            //Modificamos celdas aleatorias para convertirlas en minas
+            for (let i = 0; i < 10; i++) {
+                let filaAleat;
+                let columAleat;
+                do {
+                    filaAleat = Math.round(Math.random() * 7);
+                    columAleat = Math.round(Math.random() * 7);
+                } while (arrayCeldas[filaAleat][columAleat].className === "mina")
+                if (arrayCeldas[filaAleat][columAleat].className === "celda") {
+                    arrayCeldas[filaAleat][columAleat].className = "mina";
+                }
+            }
+        }
+
+
+        //Funcion para que las celdas reaccionen al hacer click en ellas
+        function pinchar(celda) {
+            let numeros = celda.id.split("-");
+            let fila = parseInt(numeros[0]);
+            let columna = parseInt(numeros[1]);
+
+            //si la partida no ha acabado porque hayamos hecho click en una mina el jugador podra seguir interactuando con el tablero
+            if (acabada !== true) {
+                //se hacen las funciones necesarias en caso de clickar un celda normal
+                if (arrayCeldas[fila][columna].className === "celda") {
+                    if (activado === false) {
+                        empezarCont();
+                    }
+
+                    //si la celda esta vacia se llamara a la funcion encargada de destapar todas las celdas vacias de su alrededor
+                    if (arrayCeldas[fila][columna].innerHTML === "") {
+                        destaparCelda(fila, columna);
+                    }
+
+                    //Caso de victoria que se activa al despejar todas las celdas sin mina
+                    if (victoria() === true) {
+                        document.getElementById("cont").style.color = "limegreen";
+                        document.getElementById("cara").src = "images/caravictoria.png";
+                        acabarProg();
+                    }
+                    //si se pincha una mina la celda cambia de color y el programa acaba
+                } else if (arrayCeldas[fila][columna].className === "mina") {
+                    arrayCeldas[fila][columna].style.backgroundColor = "rgb(255, 90, 90)";
+                    arrayCeldas[fila][columna].innerHTML = "💣";
+                    document.getElementById("cara").src = "images/caraderrota.png";
+                    acabarProg();
+                }
+            }
+
+        }
+
+        //esta funcion destapa todas las celdas adyacentes a una celda vacia, es decir, que no tiene minas al rededor de ella.
+        //Esta destapara todas las celdas que tiene al rededor hasta que no quede ninguna celda vacia mas por destapar
+        function destaparCelda(fila, columna) {
+            //impide que las celdas que esten fuera del rango del buscaminas o que sean de color grey entren en la funcion
+            if (fila >= 0 && fila < 8 && columna >= 0 && columna < 8 && arrayCeldas[fila][columna].style.backgroundColor !== "grey") {
+                arrayCeldas[fila][columna].style.backgroundColor = "grey";
+                arrayCeldas[fila][columna].innerHTML = comprobarCelda(fila, columna);
+
+                //destapa las celdas alrededor de la celda vacia si esa celda esta vacia
+                if (arrayCeldas[fila][columna].innerHTML === "") {
+                    destaparCelda(fila - 1, columna - 1);
+                    destaparCelda(fila - 1, columna);
+                    destaparCelda(fila - 1, columna + 1);
+                    destaparCelda(fila, columna + 1);
+                    destaparCelda(fila + 1, columna + 1);
+                    destaparCelda(fila + 1, columna);
+                    destaparCelda(fila + 1, columna - 1);
+                    destaparCelda(fila, columna - 1);
+                }
+            }
+        }
+
+        //dependiendo de la celda a la que pinchemos tendremos que llamar a una funcion diferente
+        function comprobarCelda(fila, columna) {
+            //esquinas
+            if (fila === 0 && columna === 0 || fila === 0 && columna === 7 || fila === 7 && columna === 0 || fila === 7 && columna === 7) {
+                return comprobarEsquinas(fila, columna);
+                //lado de arriba y abajo
+            } else if (fila === 0 || fila === 7) {
+                return comprobarArrAbj(fila, columna);
+                //lados izquierdo y derecho
+            } else if (columna === 0 || columna === 7) {
+                return comprobarLados(fila, columna);
+                //centro
+            } else {
+                return comprobarCentro(fila, columna);
+            }
+        }
+
+
+        //funciones para comprobar las filas y columnas de los bordes
+        //se comprueba la esquina superior izquierda
+        function comprobarEsquinas(fila, columna) {
+            let nminas = 0;
+
+            if (fila === 0 && columna === 0) {
+                if (arrayCeldas[fila][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna].className === "mina") {
+                    nminas++;
+                }
+            }
+
+            if (fila === 0 && columna === 7) {
+                if (arrayCeldas[fila][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna].className === "mina") {
+                    nminas++;
+                }
+            }
+
+            if (fila === 7 && columna === 0) {
+                if (arrayCeldas[fila - 1][columna].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila][columna + 1].className === "mina") {
+                    nminas++;
+                }
+            }
+
+            if (fila === 7 && columna === 7) {
+                if (arrayCeldas[fila][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna].className === "mina") {
+                    nminas++;
+                }
+            }
+            if (nminas === 0) {
+                return "";
+            } else {
+                return nminas;
+            }
+        }
+
+        //se comprueba la parte superior en inferior que no sean esquinas
+        function comprobarArrAbj(fila, columna) {
+            let nminas = 0;
+            if (fila === 0) {
+                if (arrayCeldas[fila][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila][columna + 1].className === "mina") {
+                    nminas++;
+                }
+            }
+            if (fila === 7) {
+                if (arrayCeldas[fila][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila][columna + 1].className === "mina") {
+                    nminas++;
+                }
+            }
+            if (nminas === 0) {
+                return "";
+            } else {
+                return nminas;
+            }
+        }
+
+        //se comprueban los lados izquierdos y derechos que no sean esquinas
+        function comprobarLados(fila, columna) {
+            let nminas = 0;
+            if (columna === 0) {
+                if (arrayCeldas[fila - 1][columna].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna].className === "mina") {
+                    nminas++;
+                }
+            }
+            if (columna === 7) {
+                if (arrayCeldas[fila - 1][columna].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna].className === "mina") {
+                    nminas++;
+                }
+            }
+            if (nminas === 0) {
+                return "";
+            } else {
+                return nminas;
+            }
+        }
+
+        //se comprueba todas las celdas del tablero que no sean un lado o una esquina
+        function comprobarCentro(fila, columna) {
+            let nminas = 0;
+            if (arrayCeldas[fila - 1][columna - 1].className === "mina") {
+                nminas++;
+            }
+            if (arrayCeldas[fila - 1][columna].className === "mina") {
+                nminas++;
+            }
+            if (arrayCeldas[fila - 1][columna + 1].className === "mina") {
+                nminas++;
+            }
+            if (arrayCeldas[fila][columna + 1].className === "mina") {
+                nminas++;
+            }
+            if (arrayCeldas[fila + 1][columna + 1].className === "mina") {
+                nminas++;
+            }
+            if (arrayCeldas[fila + 1][columna].className === "mina") {
+                nminas++;
+            }
+            if (arrayCeldas[fila + 1][columna - 1].className === "mina") {
+                nminas++;
+            }
+            if (arrayCeldas[fila][columna - 1].className === "mina") {
+                nminas++;
+            }
+            if (nminas === 0) {
+                if (arrayCeldas[fila - 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila - 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna + 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila + 1][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                if (arrayCeldas[fila][columna - 1].className === "mina") {
+                    nminas++;
+                }
+                return "";
+            } else {
+                return nminas;
+            }
+        }
+
+        //BANDERAS
+        //---------------------------------------------------------------------------------------------------------------
+        //Deshabilita el menu que sale cuando se hace click derecho dentro del div "buscaminas"
+        document.getElementById("buscaminas").oncontextmenu = function () {
+            return false;
+        };
+
+        //Al hacer click derecho en una celda se pondra o se quitara una bandera
+        function ponerQuitarBandera(celda) {
+            numeros = celda.id.split("-");
+            fila = parseInt(numeros[0]);
+            columna = parseInt(numeros[1]);
+            if (acabada !== true) {
+                //si la celda contiene una bandera, al volver a hacer click en ella se vaciará y el contador aumentará
+                if (arrayCeldas[fila][columna].innerHTML === "🚩") {
+                    arrayCeldas[fila][columna].innerHTML = "";
+                    nbanderas++;
+                    document.getElementById("banderas").innerHTML = nbanderas;
+                    //al hacer click en una celda cuyo background color no sea grey, se colocara una bandera y el contador disminuirá
+                } else {
+                    if (arrayCeldas[fila][columna].style.backgroundColor !== "grey") {
+                        if (activado === false) {
+                            empezarCont();
+                        }
+                        arrayCeldas[fila][columna].innerHTML = "🚩";
+                        nbanderas--;
+                        document.getElementById("banderas").innerHTML = nbanderas;
+                    }
+                }
+            }
+
+        }
+
+        //CONTADOR
+        //--------------------------------------------------------------------------------------------------------------
+        let segundos = 0;
+        let intervalo;
+
+        //Actualiza el contador cada segundo
+        function actualizarCont() {
+            segundos++;
+            document.getElementById("cont").innerHTML = segundos;
+        }
+
+        //reinicia el contador cuando se crea un juego nuevo
+        function reiniciarCont() {
+            segundos = "";
+            document.getElementById("cont").innerHTML = segundos;
+            segundos = 0;
+            clearInterval(intervalo);
+            activado = false;
+        }
+
+        //se empieza el contador al hacer click en una celda
+        function empezarCont() {
+            if (activado === false) {
+                activado = true;
+                intervalo = setInterval(actualizarCont, 1000);
+            }
+        }
+
+        //GANAR
+        //--------------------------------------------------------------------------------------------------------------
+        function victoria() {
+            for (let fila = 0; fila < 8; fila++) {
+                for (let columna = 0; columna < 8; columna++) {
+                    // Si hay una celda que no es una mina y no ha sido destapada, dara falso
+                    if (arrayCeldas[fila][columna].className !== "mina" && arrayCeldas[fila][columna].style.backgroundColor !== "grey") {
+                        return false;
+                    }
+                }
+            }
+            // Si todas las celdas que no son minas han sido despejadas, el usuario gana
+            return true;
+        }
+
+        // ACABAR/REINICIAR PROGRAMA
+        //--------------------------------------------------------------------------------------------------------------
+        //funcion para reiniciar el programa deasde el boton del menu
+        function reiniciarProg() {
+            reiniciarCont();
+            acabada = false;
+            nbanderas = 10;
+            document.getElementById("banderas").innerHTML = nbanderas;
+            document.getElementById("buscaminas").innerHTML = "";
+            document.getElementById("cara").src = "images/carainicio.png";
+            crearBuscaminas();
+        }
+
+        //funcion para que el programa se acabe cuando se pincha una mina
+        function acabarProg() {
+            clearInterval(intervalo);
+            acabada = true;
+        }
+    </script>
+</body>
+
+</html>
